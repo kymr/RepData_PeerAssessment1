@@ -8,18 +8,134 @@ output:
 
 ## Loading and preprocessing the data
 
-
+```{r readcsv, echo=TRUE}
+activity = read.csv("./activity.csv")
+activity$date = as.Date(activity$date)
+```
 
 ## What is mean total number of steps taken per day?
 
+Calculate the total number of steps taken per day
+
+```{r calculate1, echo = TRUE}
+#install.packages("dplyr")
+library(dplyr)
+temp_activity = activity %>% filter(is.na(steps) == FALSE)
+dailyTotalNumber = tapply(temp_activity$steps, temp_activity$date, sum)
+```
+
+Make a histogram of the total number of steps taken each day
+
+```{r histtotalsteps, echo = TRUE}
+hist(dailyTotalNumber)
+```
+
+Calculate and report the mean and median of the total number of steps taken per day
+
+- mean value (total number of steps taken per day)
+```{r meantotalsteps, echo = TRUE}
+mean(dailyTotalNumber)
+```
+
+- median value (total number of steps taken per day)
+```{r mediantotalsteps, echo = TRUE}
+median(dailyTotalNumber)
+```
 
 
 ## What is the average daily activity pattern?
 
+Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r, echo = TRUE}
+#install.packages("ggplot2")
+library(ggplot2)
+
+avgStepsByInterval = temp_activity %>%
+  group_by(interval) %>%
+  summarise(avg = median(steps))
+
+
+ggplot(data=avgStepsByInterval, aes(x = interval, y = avg)) + geom_line()
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r, echo = TRUE}
+avgStepsByInterval[which.max(avgStepsByInterval$avg), 1]
+```
 
 
 ## Imputing missing values
 
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r, echo = TRUE}
+sum(is.na(activity))
+```
+
+Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r, echo = TRUE}
+is_na_index = which(is.na(activity$steps))
+is_na_intervals = activity[is_na_index, 3]
+
+activity2 = activity
+
+for (i in is_na_index) {
+    activity2[i,]$steps = avgStepsByInterval[avgStepsByInterval$interval == activity[i, 3], ]$avg
+}
+
+```
+
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+```{r, echo = TRUE}
+dailyTotalNumber2 = tapply(activity2$steps, activity2$date, sum)
+hist(dailyTotalNumber2)
+
+mean(dailyTotalNumber2)
+median(dailyTotalNumber2)
+```
+
+Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```
+mean & median values are decreased.
+By imputing missing data, total daily number of steps 0~5000 be more frequent.
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date 
+is a weekday or weekend day.
+
+```{r, echo = TRUE}
+Sys.setlocale("LC_TIME", "C")
+activity2$weekday = weekdays(activity2$date)
+activity2$weekend = activity2$weekday == "Saturday" | activity2$weekday == "Sunday"
+```
+
+
+Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
+
+```{r, echo = TRUE}
+vsWeekdays = activity2 %>%
+  group_by(weekend, interval) %>%
+  summarise(avg = mean(steps))
+
+weekdayPlot = ggplot(data=vsWeekdays[vsWeekdays$weekend == 0, ], aes(x = interval, y = avg)) + geom_line() + ggtitle("weekdays")
+weekendPlot = ggplot(data=vsWeekdays[vsWeekdays$weekend == 1, ], aes(x = interval, y = avg)) + geom_line() + ggtitle("weekend")
+
+#install.packages("gridExtra")
+library(gridExtra)
+grid.arrange(weekdayPlot, weekendPlot)
+```
